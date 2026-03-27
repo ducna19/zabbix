@@ -1,0 +1,6 @@
+---
+- name: restart zabbix agent
+  shell: |
+    cd /opt/zabbix-agent
+    docker compose restart
+  listen: restart zabbix agent

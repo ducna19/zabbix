@@ -1,0 +1,237 @@
+---
+# ─────────────────────────────────────────────────────────────
+# Task 1: Cài Docker & Docker Compose (nếu chưa có)
+# ─────────────────────────────────────────────────────────────
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - python3-pip
+    state: present
+    update_cache: true
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Install Docker CE and Docker Compose plugin
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Ensure Docker service is started and enabled
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+
+# ─────────────────────────────────────────────────────────────
+# Task 2: Copy docker-compose.yml lên server
+# ─────────────────────────────────────────────────────────────
+- name: Create deploy directory
+  file:
+    path: "{{ compose_dest }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose.yml to target host
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ compose_dest }}/docker-compose.yml"
+    mode: '0644'
+  notify: restart zabbix agent
+
+# ─────────────────────────────────────────────────────────────
+# Task 3: Docker Compose up
+# ─────────────────────────────────────────────────────────────
+- name: Pull Zabbix Agent image
+  community.docker.docker_compose_v2:
+    project_src: "{{ compose_dest }}"
+    pull: always
+  ignore_errors: true  # Fallback nếu module chưa cài
+
+- name: Start Zabbix Agent via docker compose (fallback)
+  shell: |
+    cd {{ compose_dest }}
+    docker compose up -d --remove-orphans
+  changed_when: true
+
+- name: Wait for Zabbix Agent container to be running
+  shell: docker inspect -f '{{ "{{" }}.State.Running{{ "}}" }}' zabbix-agent
+  register: container_status
+  retries: 5
+  delay: 3
+  until: container_status.stdout.strip() == 'true'
+
+# ─────────────────────────────────────────────────────────────
+# Task 4: Gọi Zabbix API để add host
+# ─────────────────────────────────────────────────────────────
+- name: Login Zabbix API → get auth token
+  uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: "user.login"
+      params:
+        username: "{{ zabbix_api_user }}"
+        password: "{{ zabbix_api_password }}"
+      id: 1
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+    return_content: true
+  register: zabbix_login
+  no_log: true  # Ẩn password trong logs
+
+- name: Extract auth token
+  set_fact:
+    zabbix_auth_token: "{{ zabbix_login.json.result }}"
+
+- name: Get Zabbix host group ID
+  uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: "hostgroup.get"
+      params:
+        filter:
+          name: ["{{ zabbix_host_group }}"]
+      auth: "{{ zabbix_auth_token }}"
+      id: 2
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+  register: zabbix_group
+
+- name: Fail if host group not found
+  fail:
+    msg: "Host group '{{ zabbix_host_group }}' không tồn tại trên Zabbix!"
+  when: zabbix_group.json.result | length == 0
+
+- name: Extract host group ID
+  set_fact:
+    zabbix_groupid: "{{ zabbix_group.json.result[0].groupid }}"
+
+- name: Get Zabbix template ID
+  uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: "template.get"
+      params:
+        filter:
+          name: ["{{ zabbix_template }}"]
+      auth: "{{ zabbix_auth_token }}"
+      id: 3
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+  register: zabbix_tmpl
+
+- name: Extract template ID
+  set_fact:
+    zabbix_templateid: "{{ zabbix_tmpl.json.result[0].templateid }}"
+  when: zabbix_tmpl.json.result | length > 0
+
+- name: Check if host already exists in Zabbix
+  uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: "host.get"
+      params:
+        filter:
+          host: ["{{ zabbix_hostname }}"]
+      auth: "{{ zabbix_auth_token }}"
+      id: 4
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+  register: zabbix_host_check
+
+- name: Add host to Zabbix (nếu chưa tồn tại)
+  uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: "host.create"
+      params:
+        host: "{{ zabbix_hostname }}"
+        name: "{{ zabbix_hostname }}"
+        interfaces:
+          - type: 1          # Zabbix agent
+            main: 1
+            useip: 1
+            ip: "{{ ansible_default_ipv4.address }}"
+            dns: ""
+            port: "{{ zabbix_agent_port }}"
+        groups:
+          - groupid: "{{ zabbix_groupid }}"
+        templates:
+          - templateid: "{{ zabbix_templateid }}"
+        status: 0            # 0 = monitored
+      auth: "{{ zabbix_auth_token }}"
+      id: 5
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+  register: zabbix_add_host
+  when: zabbix_host_check.json.result | length == 0
+
+- name: Update host nếu đã tồn tại (re-link template)
+  uri:
+    url: "{{ zabbix_api_url }}"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      method: "host.update"
+      params:
+        hostid: "{{ zabbix_host_check.json.result[0].hostid }}"
+        templates:
+          - templateid: "{{ zabbix_templateid }}"
+        status: 0
+      auth: "{{ zabbix_auth_token }}"
+      id: 6
+    headers:
+      Content-Type: "application/json"
+    status_code: 200
+  when: zabbix_host_check.json.result | length > 0
+
+- name: Summary
+  debug:
+    msg: |
+      ✅ Zabbix Agent deployed successfully!
+         Host: {{ zabbix_hostname }}
+         IP:   {{ ansible_default_ipv4.address }}
+         Port: {{ zabbix_agent_port }}
+         {% if zabbix_host_check.json.result | length == 0 %}
+         Action: Host CREATED on Zabbix
+         {% else %}
+         Action: Host UPDATED on Zabbix
+         {% endif %}

@@ -1,0 +1,23 @@
+---
+- name: Deploy Zabbix Agent via Docker Compose
+  hosts: target_hosts
+  become: true
+  gather_facts: true
+
+  vars:
+    # Giá trị mặc định — sẽ bị ghi đè bởi --extra-vars từ Jenkins
+    zabbix_server_ip: "10.0.0.5"
+    zabbix_agent_port: "10050"
+    zabbix_hostname: "{{ inventory_hostname }}"
+    compose_dest: "/opt/zabbix-agent"
+    compose_src: "{{ playbook_dir }}/../../docker/docker-compose.yml"
+
+    # Zabbix API
+    zabbix_api_url: "http://{{ zabbix_server_ip }}/zabbix/api_jsonrpc.php"
+    zabbix_api_user: "Admin"
+    zabbix_api_password: ""
+    zabbix_host_group: "Linux servers"
+    zabbix_template: "Linux by Zabbix agent"
+
+  roles:
+    - role: zabbix_agent

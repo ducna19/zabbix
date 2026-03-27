@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:ubuntu-6.4-latest
+    container_name: zabbix-agent
+    restart: unless-stopped
+    privileged: true
+    network_mode: host          # Dùng host network để Zabbix Server kết nối trực tiếp
+    pid: host                   # Cho phép monitor process trên host
+    environment:
+      - ZBX_HOSTNAME={{ zabbix_hostname }}
+      - ZBX_SERVER_HOST={{ zabbix_server_ip }}
+      - ZBX_SERVER_PORT=10051
+      - ZBX_LISTENPORT={{ zabbix_agent_port }}
+      - ZBX_DEBUGLEVEL=3
+      - ZBX_ENABLEREMOTECOMMANDS=1
+    volumes:
+      - /etc/os-release:/etc/os-release:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /proc:/proc:ro
+      - /run:/run:ro
+      - zabbix-agent-data:/var/lib/zabbix
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  zabbix-agent-data:
