@@ -1,0 +1,161 @@
+pipeline {
+    agent any
+
+    parameters {
+        // ── Target Host ──────────────────────────────────────────────
+        string(
+            name: 'TARGET_HOST',
+            defaultValue: '',
+            description: 'IP hoặc hostname của máy chủ cần cài agent (vd: 192.168.1.10 hoặc ec2-xx.compute.amazonaws.com)'
+        )
+        choice(
+            name: 'HOST_TYPE',
+            choices: ['onpremise', 'aws'],
+            description: 'Loại môi trường'
+        )
+        string(
+            name: 'SSH_USER',
+            defaultValue: 'ubuntu',
+            description: 'SSH username (thường là ubuntu cho AWS)'
+        )
+        string(
+            name: 'SSH_CREDENTIAL_ID',
+            defaultValue: 'ssh-key-default',
+            description: 'Jenkins Credential ID chứa SSH private key'
+        )
+
+        // ── Zabbix Agent Config ──────────────────────────────────────
+        string(
+            name: 'ZABBIX_SERVER_IP',
+            defaultValue: '10.0.0.5',
+            description: 'IP của Zabbix Server (agent sẽ kết nối về đây)'
+        )
+        string(
+            name: 'ZABBIX_AGENT_PORT',
+            defaultValue: '10050',
+            description: 'Port lắng nghe của Zabbix Agent'
+        )
+        string(
+            name: 'ZABBIX_HOSTNAME',
+            defaultValue: '',
+            description: 'Tên hiển thị host trên Zabbix (để trống sẽ dùng TARGET_HOST)'
+        )
+
+        // ── Zabbix API Config ────────────────────────────────────────
+        string(
+            name: 'ZABBIX_API_URL',
+            defaultValue: 'http://10.0.0.5/zabbix/api_jsonrpc.php',
+            description: 'URL Zabbix API'
+        )
+        string(
+            name: 'ZABBIX_API_USER',
+            defaultValue: 'Admin',
+            description: 'Tài khoản Zabbix API'
+        )
+        string(
+            name: 'ZABBIX_API_PASSWORD_CREDENTIAL_ID',
+            defaultValue: 'zabbix-api-password',
+            description: 'Jenkins Credential ID chứa Zabbix API password'
+        )
+        string(
+            name: 'ZABBIX_HOST_GROUP',
+            defaultValue: 'Linux servers',
+            description: 'Tên group trên Zabbix (phải tồn tại sẵn)'
+        )
+        string(
+            name: 'ZABBIX_TEMPLATE',
+            defaultValue: 'Linux by Zabbix agent',
+            description: 'Template áp dụng cho host'
+        )
+    }
+
+    environment {
+        DEPLOY_HOST      = "${params.TARGET_HOST}"
+        ZABBIX_HOSTNAME  = "${params.ZABBIX_HOSTNAME ?: params.TARGET_HOST}"
+        ANSIBLE_DIR      = "${WORKSPACE}/ansible"
+        COMPOSE_SRC      = "${WORKSPACE}/docker/docker-compose.yml"
+    }
+
+    stages {
+
+        stage('Validate parameters') {
+            steps {
+                script {
+                    if (!params.TARGET_HOST?.trim()) {
+                        error("TARGET_HOST không được để trống!")
+                    }
+                    echo "==> Cài Zabbix Agent lên: ${params.TARGET_HOST} (${params.HOST_TYPE})"
+                    echo "==> Zabbix Server: ${params.ZABBIX_SERVER_IP}"
+                    echo "==> Hostname trên Zabbix: ${env.ZABBIX_HOSTNAME}"
+                }
+            }
+        }
+
+        stage('Prepare Ansible inventory') {
+            steps {
+                script {
+                    // Tạo inventory động từ tham số Jenkins
+                    def inventoryContent = """
+[target_hosts]
+${params.TARGET_HOST} ansible_user=${params.SSH_USER} ansible_ssh_private_key_file=~/.ssh/deploy_key
+
+[target_hosts:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+"""
+                    writeFile file: "${env.ANSIBLE_DIR}/inventory/hosts.ini", text: inventoryContent.trim()
+                    echo "==> Inventory đã tạo xong"
+                }
+            }
+        }
+
+        stage('Run Ansible Playbook') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: params.SSH_CREDENTIAL_ID,
+                        keyFileVariable: 'SSH_KEY_FILE'
+                    ),
+                    string(
+                        credentialsId: params.ZABBIX_API_PASSWORD_CREDENTIAL_ID,
+                        variable: 'ZABBIX_API_PASS'
+                    )
+                ]) {
+                    sh """
+                        cp \${SSH_KEY_FILE} ~/.ssh/deploy_key
+                        chmod 600 ~/.ssh/deploy_key
+
+                        ansible-playbook \\
+                            -i ${env.ANSIBLE_DIR}/inventory/hosts.ini \\
+                            ${env.ANSIBLE_DIR}/playbooks/deploy_zabbix_agent.yml \\
+                            --extra-vars "
+                                zabbix_server_ip=${params.ZABBIX_SERVER_IP}
+                                zabbix_agent_port=${params.ZABBIX_AGENT_PORT}
+                                zabbix_hostname=${env.ZABBIX_HOSTNAME}
+                                zabbix_api_url=${params.ZABBIX_API_URL}
+                                zabbix_api_user=${params.ZABBIX_API_USER}
+                                zabbix_api_password=\${ZABBIX_API_PASS}
+                                zabbix_host_group='${params.ZABBIX_HOST_GROUP}'
+                                zabbix_template='${params.ZABBIX_TEMPLATE}'
+                                compose_src=${env.COMPOSE_SRC}
+                            " \\
+                            -v
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Cài đặt Zabbix Agent thành công trên ${params.TARGET_HOST}"
+            echo "✅ Host '${env.ZABBIX_HOSTNAME}' đã được add vào Zabbix Server"
+        }
+        failure {
+            echo "❌ Pipeline thất bại! Kiểm tra logs phía trên."
+        }
+        always {
+            sh 'rm -f ~/.ssh/deploy_key || true'
+        }
+    }
+}
