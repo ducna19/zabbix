@@ -124,7 +124,7 @@ ansible_ssh_common_args='-o StrictHostKeyChecking=no'
                     sh """
                         cp \${SSH_KEY_FILE} ~/.ssh/deploy_key
                         chmod 600 ~/.ssh/deploy_key
-
+                        cd ${env.ANSIBLE_DIR}
                         ansible-playbook \\
                             -i ${env.ANSIBLE_DIR}/inventory/hosts.ini \\
                             ${env.ANSIBLE_DIR}/playbooks/deploy_zabbix_agent.yml \\
