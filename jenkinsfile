@@ -44,7 +44,7 @@ pipeline {
         // ── Zabbix API Config ────────────────────────────────────────
         string(
             name: 'ZABBIX_API_URL',
-            defaultValue: 'http://10.149.26.107/zabbix/api_jsonrpc.php',
+            defaultValue: 'http://10.149.26.107/api_jsonrpc.php',
             description: 'URL Zabbix API'
         )
         string(
