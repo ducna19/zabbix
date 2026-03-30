@@ -85,6 +85,8 @@
   uri:
     url: "{{ zabbix_api_url }}"
     method: POST
+    headers:
+      Content-Type: application/json
     body_format: json
     body:
       jsonrpc: "2.0"
@@ -93,10 +95,7 @@
         username: "{{ zabbix_api_user }}"
         password: "{{ zabbix_api_password }}"
       id: 1
-    headers:
-      Content-Type: "application/json"
-    status_code: 200
-    return_content: true
+    return_content: yes
   register: zabbix_login
   no_log: true  # Ẩn password trong logs
 
@@ -108,24 +107,25 @@
   uri:
     url: "{{ zabbix_api_url }}"
     method: POST
+    headers:
+      Content-Type: application/json
+      Authorization: "Bearer {{ zabbix_auth_token }}"
     body_format: json
     body:
       jsonrpc: "2.0"
       method: "hostgroup.get"
       params:
         filter:
-          name: ["{{ zabbix_host_group }}"]
-      auth: "{{ zabbix_auth_token }}"
+          name:
+            - "{{ zabbix_host_group }}"
       id: 2
-    headers:
-      Content-Type: "application/json"
-    status_code: 200
+    return_content: yes
   register: zabbix_group
 
 - name: Fail if host group not found
   fail:
     msg: "Host group '{{ zabbix_host_group }}' không tồn tại trên Zabbix!"
-  when: zabbix_group.json.result | length == 0
+  when: zabbix_group.json.result is not defined or zabbix_group.json.result | length == 0
 
 - name: Extract host group ID
   set_fact:
@@ -142,10 +142,10 @@
       params:
         filter:
           name: ["{{ zabbix_template }}"]
-      auth: "{{ zabbix_auth_token }}"
       id: 3
     headers:
       Content-Type: "application/json"
+      Authorization: "Bearer {{ zabbix_auth_token }}"
     status_code: 200
   register: zabbix_tmpl
 
@@ -165,10 +165,10 @@
       params:
         filter:
           host: ["{{ zabbix_hostname }}"]
-      auth: "{{ zabbix_auth_token }}"
       id: 4
     headers:
       Content-Type: "application/json"
+      Authorization: "Bearer {{ zabbix_auth_token }}"
     status_code: 200
   register: zabbix_host_check
 
@@ -195,10 +195,10 @@
         templates:
           - templateid: "{{ zabbix_templateid }}"
         status: 0            # 0 = monitored
-      auth: "{{ zabbix_auth_token }}"
       id: 5
     headers:
       Content-Type: "application/json"
+      Authorization: "Bearer {{ zabbix_auth_token }}"
     status_code: 200
   register: zabbix_add_host
   when: zabbix_host_check.json.result | length == 0
@@ -216,10 +216,10 @@
         templates:
           - templateid: "{{ zabbix_templateid }}"
         status: 0
-      auth: "{{ zabbix_auth_token }}"
       id: 6
     headers:
       Content-Type: "application/json"
+      Authorization: "Bearer {{ zabbix_auth_token }}"
     status_code: 200
   when: zabbix_host_check.json.result | length > 0
 
