@@ -42,13 +42,13 @@
 # Note: Check và stop agent cũ
 - name: Stop native Zabbix agent if exists
   service:
-    name: zabbix-agent
+    name: zabbix-agent2
     state: stopped
   ignore_errors: true
 
 - name: Disable native Zabbix agent
   service:
-    name: zabbix-agent
+    name: zabbix-agent2
     enabled: false
   ignore_errors: true
 # ─────────────────────────────────────────────────────────────
