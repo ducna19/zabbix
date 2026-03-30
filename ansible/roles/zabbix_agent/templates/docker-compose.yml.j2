@@ -2,12 +2,14 @@ version: "3.8"
 
 services:
   zabbix-agent:
-    image: zabbix/zabbix-agent2:ubuntu-6.4-latest
-    container_name: zabbix-agent
+    image: zabbix/zabbix-agent2:7.0-ubuntu-latest
+    container_name: zabbix-agent2
     restart: unless-stopped
     privileged: true
     network_mode: host          # Dùng host network để Zabbix Server kết nối trực tiếp
-    pid: host                   # Cho phép monitor process trên host
+    pid: host     
+    security_opt:
+      - apparmor=unconfined              # Cho phép monitor process trên host
     environment:
       - ZBX_HOSTNAME={{ zabbix_hostname }}
       - ZBX_SERVER_HOST={{ zabbix_server_ip }}
