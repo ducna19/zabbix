@@ -39,7 +39,18 @@
 #     name: docker
 #     state: started
 #     enabled: true
+# Note: Check và stop agent cũ
+- name: Stop native Zabbix agent if exists
+  service:
+    name: zabbix-agent
+    state: stopped
+  ignore_errors: true
 
+- name: Disable native Zabbix agent
+  service:
+    name: zabbix-agent
+    enabled: false
+  ignore_errors: true
 # ─────────────────────────────────────────────────────────────
 # Task 2: Copy docker-compose.yml lên server
 # ─────────────────────────────────────────────────────────────
