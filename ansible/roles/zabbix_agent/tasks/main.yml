@@ -72,7 +72,7 @@
   changed_when: true
 
 - name: Wait for Zabbix Agent container to be running
-  shell: docker inspect -f '{{ "{{" }}.State.Running{{ "}}" }}' zabbix-agent
+  shell: docker inspect -f '{{ "{{" }}.State.Running{{ "}}" }}' zabbix-agent2
   register: container_status
   retries: 5
   delay: 3

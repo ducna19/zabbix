@@ -18,17 +18,11 @@ services:
       - ZBX_DEBUGLEVEL=3
       - ZBX_ENABLEREMOTECOMMANDS=1
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - /etc/os-release:/etc/os-release:ro
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
-      - /proc:/proc:ro
-      - /run:/run:ro
-      - zabbix-agent-data:/var/lib/zabbix
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  - /etc/localtime:/etc/localtime:ro
-  # zabbix-agent-data:
