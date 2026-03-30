@@ -6,8 +6,8 @@ services:
     container_name: zabbix-agent2
     restart: unless-stopped
     privileged: true
-    network_mode: host          # Dùng host network để Zabbix Server kết nối trực tiếp
-    pid: host     
+    network_mode: "host"          # Dùng host network để Zabbix Server kết nối trực tiếp
+    pid: "host"     
     security_opt:
       - apparmor=unconfined              # Cho phép monitor process trên host
     environment:
@@ -30,4 +30,5 @@ services:
         max-file: "3"
 
 volumes:
-  zabbix-agent-data:
+  - /etc/localtime:/etc/localtime:ro
+  # zabbix-agent-data:
