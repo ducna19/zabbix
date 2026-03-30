@@ -5,7 +5,7 @@ pipeline {
         // ── Target Host ──────────────────────────────────────────────
         string(
             name: 'TARGET_HOST',
-            defaultValue: '',
+            defaultValue: '10.149.26.66',
             description: 'IP hoặc hostname của máy chủ cần cài agent (vd: 192.168.1.10 hoặc ec2-xx.compute.amazonaws.com)'
         )
         choice(
@@ -15,19 +15,19 @@ pipeline {
         )
         string(
             name: 'SSH_USER',
-            defaultValue: 'ubuntu',
+            defaultValue: 'devops',
             description: 'SSH username (thường là ubuntu cho AWS)'
         )
         string(
             name: 'SSH_CREDENTIAL_ID',
-            defaultValue: 'ssh-key-default',
+            defaultValue: '4953',
             description: 'Jenkins Credential ID chứa SSH private key'
         )
 
         // ── Zabbix Agent Config ──────────────────────────────────────
         string(
             name: 'ZABBIX_SERVER_IP',
-            defaultValue: '10.0.0.5',
+            defaultValue: '10.149.26.107',
             description: 'IP của Zabbix Server (agent sẽ kết nối về đây)'
         )
         string(
@@ -37,14 +37,14 @@ pipeline {
         )
         string(
             name: 'ZABBIX_HOSTNAME',
-            defaultValue: '',
+            defaultValue: 'test',
             description: 'Tên hiển thị host trên Zabbix (để trống sẽ dùng TARGET_HOST)'
         )
 
         // ── Zabbix API Config ────────────────────────────────────────
         string(
             name: 'ZABBIX_API_URL',
-            defaultValue: 'http://10.0.0.5/zabbix/api_jsonrpc.php',
+            defaultValue: 'http://10.149.26.107/zabbix/api_jsonrpc.php',
             description: 'URL Zabbix API'
         )
         string(
@@ -64,7 +64,7 @@ pipeline {
         )
         string(
             name: 'ZABBIX_TEMPLATE',
-            defaultValue: 'Linux by Zabbix agent',
+            defaultValue: 'Linux by Zabbix agent active',
             description: 'Template áp dụng cho host'
         )
     }
@@ -159,8 +159,8 @@ ansible_ssh_common_args='-o StrictHostKeyChecking=no'
         failure {
             echo "❌ Pipeline thất bại! Kiểm tra logs phía trên."
         }
-        always {
-            sh 'rm -f ~/.ssh/deploy_key || true'
-        }
+        // always {
+        //     sh 'rm -f ~/.ssh/deploy_key || true'
+        // }
     }
 }
