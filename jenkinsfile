@@ -127,8 +127,6 @@ ansible_ssh_common_args='-o StrictHostKeyChecking=no'
                         chmod 600 ~/.ssh/deploy_key
                         ls -l ~/.ssh
                         ssh-keygen -y -f ~/.ssh/deploy_key > ~/.ssh/deploy_key.pub
-                        echo "===== PUBLIC KEY ====="
-                        cat ~/.ssh/deploy_key.pub
                         cd ${env.ANSIBLE_DIR}
                         ansible-playbook \\
                             -i ${env.ANSIBLE_DIR}/inventory/hosts.ini \\
