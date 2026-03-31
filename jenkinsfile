@@ -5,7 +5,7 @@ pipeline {
         // ── Target Host ──────────────────────────────────────────────
         string(
             name: 'TARGET_HOST',
-            defaultValue: '10.149.26.66',
+            defaultValue: '10.149.26.',
             description: 'IP hoặc hostname của máy chủ cần cài agent (vd: 192.168.1.10 hoặc ec2-xx.compute.amazonaws.com)'
         )
         choice(
@@ -37,7 +37,7 @@ pipeline {
         )
         string(
             name: 'ZABBIX_HOSTNAME',
-            defaultValue: 'test',
+            defaultValue: 'abc',
             description: 'Tên hiển thị host trên Zabbix (để trống sẽ dùng TARGET_HOST)'
         )
 
