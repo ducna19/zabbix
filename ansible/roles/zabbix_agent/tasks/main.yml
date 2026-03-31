@@ -1,44 +1,44 @@
-# ---
-# # ─────────────────────────────────────────────────────────────
-# # Task 1: Cài Docker & Docker Compose (nếu chưa có)
-# # ─────────────────────────────────────────────────────────────
-# - name: Install required packages
-#   apt:
-#     name:
-#       - apt-transport-https
-#       - ca-certificates
-#       - curl
-#       - gnupg
-#       - lsb-release
-#       - python3-pip
-#     state: present
-#     update_cache: true
 
-# - name: Add Docker GPG key
-#   apt_key:
-#     url: https://download.docker.com/linux/ubuntu/gpg
-#     state: present
+# ─────────────────────────────────────────────────────────────
+# Task 1: Cài Docker & Docker Compose (nếu chưa có)
+# ─────────────────────────────────────────────────────────────
+- name: Install dependencies
+  apt:
+    name: [ca-certificates, curl, gnupg]
+    state: present
+    update_cache: true
+  when: docker_check.rc != 0
 
-# - name: Add Docker repository
-#   apt_repository:
-#     repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-#     state: present
+- name: Add Docker GPG key
+  shell: |
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  when: docker_check.rc != 0
 
-# - name: Install Docker CE and Docker Compose plugin
-#   apt:
-#     name:
-#       - docker-ce
-#       - docker-ce-cli
-#       - containerd.io
-#       - docker-compose-plugin
-#     state: present
-#     update_cache: true
+- name: Add Docker repo
+  shell: |
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable" \
+    > /etc/apt/sources.list.d/docker.list
+  when: docker_check.rc != 0
 
-# - name: Ensure Docker service is started and enabled
-#   systemd:
-#     name: docker
-#     state: started
-#     enabled: true
+- name: Install Docker CE
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  when: docker_check.rc != 0
+
+- name: Ensure Docker service is started and enabled
+  systemd:
+    name: docker
+    state: started
+    enabled: true
 # Note: Check và stop agent cũ
 - name: Stop native Zabbix agent if exists
   service:
