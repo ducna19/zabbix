@@ -1,95 +1,44 @@
+# ---
+# # ─────────────────────────────────────────────────────────────
+# # Task 1: Cài Docker & Docker Compose (nếu chưa có)
+# # ─────────────────────────────────────────────────────────────
+# - name: Install required packages
+#   apt:
+#     name:
+#       - apt-transport-https
+#       - ca-certificates
+#       - curl
+#       - gnupg
+#       - lsb-release
+#       - python3-pip
+#     state: present
+#     update_cache: true
 
-# ─────────────────────────────────────────────────────────────
-# Task 1: Cài Docker & Docker Compose (nếu chưa có)
-# ─────────────────────────────────────────────────────────────
-- name: Check if Docker is installed
-  command: docker --version
-  register: docker_check
-  ignore_errors: true
-# ─────────────────────────────────────────────────────────────
-# Clean Docker old repo (QUAN TRỌNG)
-# ─────────────────────────────────────────────────────────────
-- name: Remove old Docker repo file
-  file:
-    path: /etc/apt/sources.list.d/docker.list
-    state: absent
-  ignore_errors: true
+# - name: Add Docker GPG key
+#   apt_key:
+#     url: https://download.docker.com/linux/ubuntu/gpg
+#     state: present
 
-- name: Remove old Docker key (asc)
-  file:
-    path: /etc/apt/keyrings/docker.asc
-    state: absent
-  ignore_errors: true
+# - name: Add Docker repository
+#   apt_repository:
+#     repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+#     state: present
 
-- name: Remove old Docker key (gpg)
-  file:
-    path: /etc/apt/keyrings/docker.gpg
-    state: absent
-  ignore_errors: true
-# ─────────────────────────────────────────────────────────────
-# Install dependencies
-# ─────────────────────────────────────────────────────────────
-- name: Install required packages
-  apt:
-    name:
-      - ca-certificates
-      - curl
-      - gnupg
-      - lsb-release
-    state: present
-    update_cache: yes
-  when: docker_check.rc != 0
+# - name: Install Docker CE and Docker Compose plugin
+#   apt:
+#     name:
+#       - docker-ce
+#       - docker-ce-cli
+#       - containerd.io
+#       - docker-compose-plugin
+#     state: present
+#     update_cache: true
 
-# ─────────────────────────────────────────────────────────────
-# Add Docker GPG key (NEW - no apt-key)
-# ─────────────────────────────────────────────────────────────
-- name: Create keyrings directory
-  file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
-  when: docker_check.rc != 0
-
-- name: Download Docker GPG key
-  get_url:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    dest: /etc/apt/keyrings/docker.gpg
-    mode: '0644'
-  when: docker_check.rc != 0
-
-# ─────────────────────────────────────────────────────────────
-# Add Docker repository (NEW format)
-# ─────────────────────────────────────────────────────────────
-- name: Add Docker repo
-  apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-    state: present
-    filename: docker
-  when: docker_check.rc != 0
-
-# ─────────────────────────────────────────────────────────────
-# Install Docker
-# ─────────────────────────────────────────────────────────────
-- name: Install Docker + Compose plugin
-  apt:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-      - docker-compose-plugin
-    state: present
-    update_cache: yes
-  when: docker_check.rc != 0
-
-# ─────────────────────────────────────────────────────────────
-# Start Docker
-# ─────────────────────────────────────────────────────────────
-- name: Start and enable Docker
-  systemd:
-    name: docker
-    state: started
-    enabled: yes
-  when: docker_check.rc != 0
+# - name: Ensure Docker service is started and enabled
+#   systemd:
+#     name: docker
+#     state: started
+#     enabled: true
 
 # Note: Check và stop agent cũ
 - name: Stop native Zabbix agent if exists
