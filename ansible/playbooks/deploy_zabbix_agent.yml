@@ -1,7 +1,7 @@
 ---
 - name: Deploy Zabbix Agent via Docker Compose
   hosts: target_hosts
-  become: false
+  become: true
   gather_facts: true
 
   vars:
