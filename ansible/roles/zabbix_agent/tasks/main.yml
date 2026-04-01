@@ -2,12 +2,9 @@
 # ─────────────────────────────────────────────────────────────
 # Task 1: Cài Docker & Docker Compose (nếu chưa có)
 # ─────────────────────────────────────────────────────────────
-- name: Install Docker on Ubuntu
-  hosts: all
-  become: false
-
   tasks:
     - name: Install required packages
+      become: false
       apt:
         name:
           - ca-certificates
